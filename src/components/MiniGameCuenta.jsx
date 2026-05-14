@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-const W = 700, H = 300
+const W = 700, H = 350
 const DICE_COUNT = 8
 
 export default function MiniGameCuenta({ onWin }) {
@@ -8,60 +8,91 @@ export default function MiniGameCuenta({ onWin }) {
   const onWinRef = useRef(onWin)
   onWinRef.current = onWin
   const [digits, setDigits] = useState(Array(DICE_COUNT).fill(0))
-  const [current, setCurrent] = useState(0)
-  const [done, setDone] = useState(false)
 
   useEffect(() => {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     canvas.width = W; canvas.height = H
 
-    let digits = Array(DICE_COUNT).fill(0)
-    let currentDie = 0
-    let jumping = false
-    let jumpFrame = 0
-    let charX = 50
-    const dieSize = 56
-    const gap = 16
+    const dieSize = 54
+    const gap = 14
     const startX = (W - (DICE_COUNT * dieSize + (DICE_COUNT - 1) * gap)) / 2
-    const dieY = 40
+    const dieY = 30
+
+    const player = {
+      x: startX + dieSize / 2,
+      y: H - 60,
+      w: 20,
+      h: 28,
+      vx: 0,
+      vy: 0,
+      grounded: true,
+    }
+
+    let digits = Array(DICE_COUNT).fill(0)
+    let hitCooldowns = Array(DICE_COUNT).fill(0)
+    let animId, running = true
+    const keys = {}
+    let jumpFrames = 0
 
     const kd = e => {
-      if (e.key === ' ' || e.key === 'Space') {
+      keys[e.key] = true
+      if ((e.key === ' ' || e.key === 'Space') && player.grounded) {
         e.preventDefault()
-        if (done) return
-        if (currentDie < DICE_COUNT) {
-          digits[currentDie] = (digits[currentDie] + 1) % 10
-          setDigits([...digits])
-          jumping = true
-          jumpFrame = 0
-        }
-      }
-      if ((e.key === 'Enter' || e.key === 'ArrowDown') && currentDie < DICE_COUNT) {
-        e.preventDefault()
-        currentDie++
-        setCurrent(currentDie)
-        if (currentDie >= DICE_COUNT) {
-          setDone(true)
-          onWinRef.current?.(digits.join(''))
-        }
+        player.vy = -9
+        player.grounded = false
+        jumpFrames = 20
       }
     }
-    window.addEventListener('keydown', kd)
+    const ku = e => keys[e.key] = false
+    window.addEventListener('keydown', kd); window.addEventListener('keyup', ku)
 
     function update() {
-      if (jumping) {
-        jumpFrame++
-        if (jumpFrame > 12) jumping = false
+      if (keys['ArrowLeft'] || keys['a']) player.vx = -4
+      else if (keys['ArrowRight'] || keys['d']) player.vx = 4
+      else player.vx *= 0.7
+
+      player.x += player.vx
+      player.x = Math.max(10, Math.min(W - 10, player.x))
+
+      if (!player.grounded) {
+        player.vy += 0.5
+        player.y += player.vy
+        if (jumpFrames > 0) jumpFrames--
       }
-      charX = startX + currentDie * (dieSize + gap) + dieSize / 2
+
+      if (player.y >= H - 60) {
+        player.y = H - 60
+        player.vy = 0
+        player.grounded = true
+      }
+
+      for (let i = 0; i < DICE_COUNT; i++) {
+        if (hitCooldowns[i] > 0) hitCooldowns[i]--
+      }
+
+      if (!player.grounded && player.vy < 0) {
+        const headY = player.y
+        for (let i = 0; i < DICE_COUNT; i++) {
+          if (hitCooldowns[i] > 0) continue
+          const dx = startX + i * (dieSize + gap) + dieSize / 2
+          if (Math.abs(player.x - dx) < dieSize / 2 + 8 && headY < dieY + dieSize && headY > dieY) {
+            digits[i] = (digits[i] + 1) % 10
+            setDigits([...digits])
+            player.vy = 5
+            hitCooldowns[i] = 15
+          }
+        }
+      }
     }
 
-    function drawDie(x, y, digit, active, locked) {
+    function drawDie(x, y, digit, idx) {
       const r = 8
-      ctx.fillStyle = active ? '#e0f2fe' : (locked ? '#d1fae5' : '#1e1e32')
-      ctx.strokeStyle = active ? '#3b82f6' : (locked ? '#50BA40' : '#4a4a6a')
-      ctx.lineWidth = active ? 3 : 2
+      const cd = hitCooldowns[idx] > 0
+
+      ctx.fillStyle = '#1e1e32'
+      ctx.strokeStyle = cd ? '#50BA40' : '#4a4a6a'
+      ctx.lineWidth = cd ? 3 : 2
       ctx.beginPath()
       ctx.moveTo(x + r, y)
       ctx.lineTo(x + dieSize - r, y)
@@ -76,74 +107,71 @@ export default function MiniGameCuenta({ onWin }) {
       ctx.fill()
       ctx.stroke()
 
-      if (active) {
-        for (let i = 0; i < 3; i++) {
-          const dot = i === 0 ? digit : (i === 1 ? digit + 1 : digit - 1)
-          const d = (dot + 10) % 10
-          ctx.fillStyle = `rgba(59,130,246,${0.2 - i * 0.06})`
-          ctx.font = '10px sans-serif'
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'middle'
-          ctx.fillText(d, x + dieSize / 2 + (i - 1) * 20, y + dieSize / 2 - 15)
-        }
+      const isActive = Math.abs(player.x - (x + dieSize / 2)) < dieSize / 2 + 8
+
+      if (isActive && player.grounded) {
+        ctx.fillStyle = 'rgba(80,186,64,0.12)'
+        ctx.beginPath()
+        ctx.arc(x + dieSize / 2, y + dieSize / 2, dieSize / 2 + 6, 0, Math.PI * 2)
+        ctx.fill()
       }
 
-      ctx.fillStyle = active ? '#1e40af' : (locked ? '#065f46' : '#fff')
-      ctx.font = 'bold 26px sans-serif'
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 24px sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(digit, x + dieSize / 2, y + dieSize / 2)
+      ctx.fillText(digit, x + dieSize / 2, y + dieSize / 2 - 2)
     }
 
-    function drawMario(cx, cy) {
-      const j = jumping ? Math.sin(jumpFrame / 12 * Math.PI) * 20 : 0
-      const by = cy - j
+    function drawPlayer() {
+      const bobY = player.grounded ? Math.sin(Date.now() / 200) * 1 : 0
+      const px = player.x
+      const py = player.y + bobY
 
       ctx.fillStyle = '#e53e3e'
-      ctx.fillRect(cx - 12, by - 20, 24, 8)
+      ctx.fillRect(px - 10, py - 20, 20, 8)
       ctx.fillStyle = '#fbd38d'
-      ctx.fillRect(cx - 10, by - 12, 20, 10)
+      ctx.fillRect(px - 8, py - 12, 16, 8)
       ctx.fillStyle = '#e53e3e'
-      ctx.fillRect(cx - 10, by - 2, 20, 10)
+      ctx.fillRect(px - 8, py - 4, 16, 10)
       ctx.fillStyle = '#2b6cb0'
-      ctx.fillRect(cx - 10, by + 8, 20, 10)
+      ctx.fillRect(px - 8, py + 6, 16, 10)
       ctx.fillStyle = '#f6ad55'
       ctx.beginPath()
-      ctx.arc(cx - 3, by + 3, 2, 0, Math.PI * 2)
-      ctx.arc(cx + 3, by + 3, 2, 0, Math.PI * 2)
+      ctx.arc(px - 2, py - 1, 1.5, 0, Math.PI * 2)
+      ctx.arc(px + 2, py - 1, 1.5, 0, Math.PI * 2)
       ctx.fill()
 
       ctx.fillStyle = '#fbd38d'
-      ctx.fillRect(cx - 9, by + 18, 7, 8)
-      ctx.fillRect(cx + 2, by + 18, 7, 8)
+      ctx.fillRect(px - 6, py + 16, 5, 6)
+      ctx.fillRect(px + 1, py + 16, 5, 6)
     }
 
     function draw() {
-      ctx.fillStyle = '#0d0d2a'; ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = '#0d0d2a'
+      ctx.fillRect(0, 0, W, H)
 
-      ctx.strokeStyle = 'rgba(80,186,64,0.04)'
+      ctx.strokeStyle = 'rgba(80,186,64,0.03)'
       for (let i = 0; i < W; i += 30) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke() }
       for (let i = 0; i < H; i += 30) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke() }
 
+      ctx.fillStyle = '#2a2a3e'
+      ctx.fillRect(0, H - 30, W, 30)
+      ctx.strokeStyle = '#3a3a5c'
+      ctx.lineWidth = 1
+      ctx.beginPath(); ctx.moveTo(0, H - 30); ctx.lineTo(W, H - 30); ctx.stroke()
+
       for (let i = 0; i < DICE_COUNT; i++) {
         const x = startX + i * (dieSize + gap)
-        drawDie(x, dieY, digits[i], i === currentDie && !done, i < currentDie || done)
+        drawDie(x, dieY, digits[i], i)
       }
 
-      if (!done) {
-        drawMario(charX, dieY + dieSize + 30)
-      }
+      drawPlayer()
 
-      ctx.fillStyle = '#9ca3af'
-      ctx.font = '12px sans-serif'
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 18px sans-serif'
       ctx.textAlign = 'center'
-      if (!done) {
-        ctx.fillText('ESPACIO: girar dado  ·  ENTER: confirmar dado', W / 2, H - 20)
-      } else {
-        ctx.fillStyle = '#50BA40'
-        ctx.font = '16px sans-serif'
-        ctx.fillText('✓ Cuenta: ' + digits.join(''), W / 2, H - 30)
-      }
+      ctx.fillText(digits.join(''), W / 2, H - 8)
     }
 
     function loop() {
@@ -152,9 +180,8 @@ export default function MiniGameCuenta({ onWin }) {
       animId = requestAnimationFrame(loop)
     }
 
-    let animId, running = true
     animId = requestAnimationFrame(loop)
-    return () => { running = false; cancelAnimationFrame(animId); window.removeEventListener('keydown', kd) }
+    return () => { running = false; cancelAnimationFrame(animId); window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku) }
   }, [])
 
   const account = digits.join('')
@@ -162,25 +189,26 @@ export default function MiniGameCuenta({ onWin }) {
   return (
     <div>
       <canvas ref={canvasRef} className="game-canvas" />
-      {done && (
-        <div style={{ textAlign: 'center', marginTop: '12px' }}>
-          <button
-            onClick={() => onWinRef.current?.(account)}
-            style={{
-              padding: '10px 32px',
-              background: '#50BA40',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Usar cuenta {account}
-          </button>
-        </div>
-      )}
+      <div className="modal-controls">
+        ← → mover · ESPACIO saltar y golpear dados
+      </div>
+      <div style={{ textAlign: 'center', marginTop: '12px' }}>
+        <button
+          onClick={() => onWinRef.current?.(account)}
+          style={{
+            padding: '10px 32px',
+            background: '#50BA40',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Usar cuenta {account}
+        </button>
+      </div>
     </div>
   )
 }
