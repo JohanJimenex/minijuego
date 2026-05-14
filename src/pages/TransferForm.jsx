@@ -10,8 +10,6 @@ const INITIAL = {
   descripcion: '',
 }
 
-const ORIGENES = ['0001-1234-5678-9010', '0002-2345-6789-0120', '0003-3456-7890-1230']
-
 export default function TransferForm({ onBack, onComplete }) {
   const [form, setForm] = useState(INITIAL)
   const [modal, setModal] = useState(null)
@@ -19,11 +17,13 @@ export default function TransferForm({ onBack, onComplete }) {
   const update = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
   const openModal = (game) => {
+    if (game === 'cuenta' && !form.cuentaOrigen) setModal('cuenta')
     if (game === 'banco' && !form.bancoDestino) setModal('banco')
     if (game === 'monto' && !form.monto) setModal('monto')
   }
 
   const handleGameWin = (game, value) => {
+    if (game === 'cuenta') update('cuentaOrigen', value)
     if (game === 'banco') update('bancoDestino', value)
     if (game === 'monto') update('monto', String(value))
     if (game === 'jefe') { onComplete(true); return }
@@ -47,13 +47,19 @@ export default function TransferForm({ onBack, onComplete }) {
           <div className="transfer-title">Nueva transferencia</div>
 
           <div className="form-group">
-            <label>Cuenta origen</label>
-            <select value={form.cuentaOrigen} onChange={e => update('cuentaOrigen', e.target.value)}>
-              <option value="">Selecciona una cuenta</option>
-              {ORIGENES.map((c, i) => (
-                <option key={i} value={c}>{c} — ${[25000, 15000, 8000][i]}.00</option>
-              ))}
-            </select>
+            <label>
+              Cuenta origen
+              <span className="game-badge">🎮 minijuego</span>
+            </label>
+            <div className={`game-field ${form.cuentaOrigen ? 'completed' : ''}`} onClick={() => openModal('cuenta')}>
+              <input
+                type="text"
+                placeholder="Haz clic para generar cuenta"
+                value={form.cuentaOrigen}
+                readOnly
+              />
+              <span className="click-hint">{form.cuentaOrigen ? '✓' : '🎮'}</span>
+            </div>
           </div>
 
           <div className="form-group">
