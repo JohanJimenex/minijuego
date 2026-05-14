@@ -17,7 +17,7 @@ export default function MiniGameCuenta({ onWin }) {
     const dieSize = 54
     const gap = 14
     const startX = (W - (DICE_COUNT * dieSize + (DICE_COUNT - 1) * gap)) / 2
-    const dieY = 30
+    const dieY = 55
 
     const player = {
       x: startX + dieSize / 2,
@@ -39,7 +39,7 @@ export default function MiniGameCuenta({ onWin }) {
       keys[e.key] = true
       if ((e.key === ' ' || e.key === 'Space') && player.grounded) {
         e.preventDefault()
-        player.vy = -9
+        player.vy = -14
         player.grounded = false
         jumpFrames = 20
       }
