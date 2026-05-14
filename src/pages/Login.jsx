@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 export default function Login({ onLogin }) {
-  const [user, setUser] = useState('johan')
+  const [user, setUser] = useState('ejemplo')
   const [pass, setPass] = useState('123456')
   const [error, setError] = useState('')
 
@@ -43,7 +43,7 @@ export default function Login({ onLogin }) {
           </div>
           <button type="submit" className="login-btn">Iniciar sesión</button>
           <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '12px', color: '#9ca3af' }}>
-            Usuario: <strong>johan</strong> · Contraseña: <strong>123456</strong>
+            Usuario: <strong>ejemplo</strong> · Contraseña: <strong>123456</strong>
           </div>
           {error && <div className="login-error">{error}</div>}
         </form>
