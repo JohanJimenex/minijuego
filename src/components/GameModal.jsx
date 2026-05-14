@@ -4,7 +4,7 @@ import MiniGameMonto from './MiniGameMonto'
 import MiniGameJefe from './MiniGameJefe'
 
 const TITLES = {
-  cuenta: 'Genera tu cuenta de origen',
+  destino: 'Genera tu cuenta destino',
   banco: 'Selecciona el banco destino',
   monto: 'Define el monto exacto',
   jefe: 'Autoriza la transferencia',
@@ -19,7 +19,7 @@ export default function GameModal({ game, onWin, onLose, onClose }) {
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
-          {game === 'cuenta' && <MiniGameCuenta onWin={(c) => onWin(c)} />}
+          {game === 'destino' && <MiniGameCuenta onWin={(c) => onWin(c)} onLose={onLose} />}
           {game === 'banco' && <MiniGameBanco onWin={(b) => onWin(b)} />}
           {game === 'monto' && <MiniGameMonto onWin={(m) => onWin(m)} />}
           {game === 'jefe' && (

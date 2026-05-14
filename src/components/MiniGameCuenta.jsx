@@ -1,18 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
+import { sfxJump, sfxDiceHit, sfxSelect, sfxExplosion, startMusicCuenta, stopMusic } from '../utils/sound'
 
 const W = 700, H = 350
 const DICE_COUNT = 8
 
-export default function MiniGameCuenta({ onWin }) {
+export default function MiniGameCuenta({ onWin, onLose }) {
   const canvasRef = useRef(null)
   const onWinRef = useRef(onWin)
+  const onLoseRef = useRef(onLose)
   onWinRef.current = onWin
+  onLoseRef.current = onLose
+  const [gameId, setGameId] = useState(0)
+  const setGameIdRef = useRef(setGameId)
+  setGameIdRef.current = setGameId
+
   const [digits, setDigits] = useState(Array(DICE_COUNT).fill(0))
 
   useEffect(() => {
+    startMusicCuenta()
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     canvas.width = W; canvas.height = H
+    const _setGameId = setGameIdRef.current
 
     const dieSize = 54
     const gap = 14
@@ -29,25 +38,41 @@ export default function MiniGameCuenta({ onWin }) {
       grounded: true,
     }
 
-    let digits = Array(DICE_COUNT).fill(0)
+    let digitsRef = Array(DICE_COUNT).fill(0)
     let hitCooldowns = Array(DICE_COUNT).fill(0)
     let animId, running = true
     const keys = {}
     let jumpFrames = 0
+    let state = 'playing'
+    const monsters = []
+    let monsterSpawnTimer = 0
 
     const kd = e => {
       keys[e.key] = true
-      if ((e.key === ' ' || e.key === 'Space') && player.grounded) {
+      if ((e.key === ' ' || e.key === 'Space') && player.grounded && state === 'playing') {
         e.preventDefault()
         player.vy = -14
         player.grounded = false
         jumpFrames = 20
+        sfxJump()
       }
     }
     const ku = e => keys[e.key] = false
     window.addEventListener('keydown', kd); window.addEventListener('keyup', ku)
 
+    function spawnMonster() {
+      const fromLeft = Math.random() < 0.5
+      monsters.push({
+        x: fromLeft ? -30 : W + 30,
+        y: H - 54,
+        w: 22,
+        h: 24,
+        vx: fromLeft ? 1 + Math.random() * 1.5 : -(1 + Math.random() * 1.5),
+      })
+    }
+
     function update() {
+      if (state !== 'playing') return
       if (keys['ArrowLeft'] || keys['a']) player.vx = -4
       else if (keys['ArrowRight'] || keys['d']) player.vx = 4
       else player.vx *= 0.7
@@ -77,13 +102,62 @@ export default function MiniGameCuenta({ onWin }) {
           if (hitCooldowns[i] > 0) continue
           const dx = startX + i * (dieSize + gap) + dieSize / 2
           if (Math.abs(player.x - dx) < dieSize / 2 + 8 && headY < dieY + dieSize && headY > dieY) {
-            digits[i] = (digits[i] + 1) % 10
-            setDigits([...digits])
+            digitsRef[i] = (digitsRef[i] + 1) % 10
+            setDigits([...digitsRef])
             player.vy = 5
             hitCooldowns[i] = 15
+            sfxDiceHit()
           }
         }
       }
+
+      monsterSpawnTimer++
+      if (monsterSpawnTimer >= 70 + Math.random() * 40) {
+        monsterSpawnTimer = 0
+        spawnMonster()
+      }
+
+      for (let i = monsters.length - 1; i >= 0; i--) {
+        const m = monsters[i]
+        m.x += m.vx
+        if (m.x < -60 || m.x > W + 60) { monsters.splice(i, 1); continue }
+        if (m.x < player.x + player.w && m.x + m.w > player.x &&
+            m.y < player.y + player.h && m.y + m.h > player.y) {
+          state = 'lost'
+          sfxExplosion()
+        }
+      }
+    }
+
+    function drawMonster(m) {
+      ctx.save()
+      const cx = m.x + m.w / 2, cy = m.y + m.h / 2
+      ctx.fillStyle = '#8e44ad'
+      ctx.beginPath()
+      ctx.arc(cx, cy, m.w / 2, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = '#6c3483'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(cx, cy, m.w / 2, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.fillStyle = '#fff'
+      ctx.beginPath()
+      ctx.arc(cx - 4, cy - 3, 3.5, 0, Math.PI * 2)
+      ctx.arc(cx + 4, cy - 3, 3.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#000'
+      ctx.beginPath()
+      ctx.arc(cx - 4, cy - 3, 1.8, 0, Math.PI * 2)
+      ctx.arc(cx + 4, cy - 3, 1.8, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#f44'
+      ctx.beginPath()
+      ctx.arc(cx - 6, cy + 4, 1.5, 0, Math.PI * 2)
+      ctx.arc(cx, cy + 6, 1.5, 0, Math.PI * 2)
+      ctx.arc(cx + 6, cy + 4, 1.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
     }
 
     function drawDie(x, y, digit, idx) {
@@ -163,26 +237,84 @@ export default function MiniGameCuenta({ onWin }) {
 
       for (let i = 0; i < DICE_COUNT; i++) {
         const x = startX + i * (dieSize + gap)
-        drawDie(x, dieY, digits[i], i)
+        drawDie(x, dieY, digitsRef[i], i)
       }
 
+      for (const m of monsters) drawMonster(m)
       drawPlayer()
 
-      ctx.fillStyle = '#fff'
-      ctx.font = 'bold 18px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText(digits.join(''), W / 2, H - 8)
+      if (state !== 'lost') {
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 18px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText(digits.join(''), W / 2, H - 8)
+      }
+
+      if (state === 'lost') {
+        ctx.fillStyle = 'rgba(0,0,0,0.75)'
+        ctx.fillRect(0, 0, W, H)
+        ctx.fillStyle = '#f44'
+        ctx.font = 'bold 28px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('GAME OVER', W / 2, H / 2 - 40)
+        ctx.fillStyle = '#f88'
+        ctx.font = '13px sans-serif'
+        ctx.fillText('Un monstruo te atrapó', W / 2, H / 2 - 12)
+
+        const rbx = W / 2 - 110, rby = H / 2 + 16, rbw = 95, rbh = 36
+        ctx.fillStyle = '#50BA40'
+        ctx.beginPath()
+        ctx.roundRect(rbx, rby, rbw, rbh, 6)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 13px sans-serif'
+        ctx.fillText('REINTENTAR', rbx + rbw / 2, rby + rbh / 2 + 4)
+
+        const cbx = W / 2 + 15, cby = H / 2 + 16, cbw = 95, cbh = 36
+        ctx.fillStyle = '#555'
+        ctx.beginPath()
+        ctx.roundRect(cbx, cby, cbw, cbh, 6)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 13px sans-serif'
+        ctx.fillText('CANCELAR', cbx + cbw / 2, cby + cbh / 2 + 4)
+      }
     }
+
+    const handleClick = (e) => {
+      if (state !== 'lost') return
+      const rect = canvas.getBoundingClientRect()
+      const mx = (e.clientX - rect.left) * (W / rect.width)
+      const my = (e.clientY - rect.top) * (H / rect.height)
+      const rbx = W / 2 - 110, rby = H / 2 + 16, rbw = 95, rbh = 36
+      if (mx >= rbx && mx <= rbx + rbw && my >= rby && my <= rby + rbh) {
+        _setGameId(id => id + 1)
+        return
+      }
+      const cbx = W / 2 + 15, cby = H / 2 + 16, cbw = 95, cbh = 36
+      if (mx >= cbx && mx <= cbx + cbw && my >= cby && my <= cby + cbh) {
+        onLoseRef.current?.()
+      }
+    }
+    canvas.addEventListener('click', handleClick)
 
     function loop() {
       if (!running) return
-      update(); draw()
+      update()
+      draw()
       animId = requestAnimationFrame(loop)
     }
 
     animId = requestAnimationFrame(loop)
-    return () => { running = false; cancelAnimationFrame(animId); window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku) }
-  }, [])
+    return () => {
+      stopMusic()
+      running = false
+      cancelAnimationFrame(animId)
+      window.removeEventListener('keydown', kd)
+      window.removeEventListener('keyup', ku)
+      canvas.removeEventListener('click', handleClick)
+    }
+  }, [gameId])
 
   const account = digits.join('')
 
@@ -194,7 +326,7 @@ export default function MiniGameCuenta({ onWin }) {
       </div>
       <div style={{ textAlign: 'center', marginTop: '12px' }}>
         <button
-          onClick={() => onWinRef.current?.(account)}
+          onClick={() => { sfxSelect(); onWinRef.current?.(account) }}
           style={{
             padding: '10px 32px',
             background: '#50BA40',

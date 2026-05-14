@@ -1,10 +1,7 @@
 const OPTIONS = [
   { icon: '💰', title: 'Transferencias a otros bancos', desc: 'Envía dinero a cuentas de otros bancos', active: true },
   { icon: '🔄', title: 'Transferencias entre cuentas', desc: 'Mueve dinero entre tus cuentas', active: false },
-  { icon: '📊', title: 'Estado de cuenta', desc: 'Consulta tus movimientos recientes', active: false },
   { icon: '💳', title: 'Pago de tarjetas', desc: 'Paga tus tarjetas de crédito', active: false },
-  { icon: '📱', title: 'Recarga telefónica', desc: 'Recarga saldo de tu celular', active: false },
-  { icon: '🧾', title: 'Pago de servicios', desc: 'Agua, luz, internet y más', active: false },
 ]
 
 export default function Dashboard({ user, onTransfer, onLogout }) {

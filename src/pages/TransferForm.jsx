@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import GameModal from '../components/GameModal'
 
+const CUENTA_ORIGEN = '1234-5678-9012-3456'
+
 const INITIAL = {
-  cuentaOrigen: '',
+  cuentaOrigen: CUENTA_ORIGEN,
   bancoDestino: '',
   cuentaDestino: '',
   monto: '',
-  correo: '',
-  descripcion: '',
 }
 
 export default function TransferForm({ onBack, onComplete }) {
@@ -17,13 +17,13 @@ export default function TransferForm({ onBack, onComplete }) {
   const update = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
   const openModal = (game) => {
-    if (game === 'cuenta' && !form.cuentaOrigen) setModal('cuenta')
-    if (game === 'banco' && !form.bancoDestino) setModal('banco')
-    if (game === 'monto' && !form.monto) setModal('monto')
+    if (game === 'destino') setModal('destino')
+    if (game === 'banco') setModal('banco')
+    if (game === 'monto') setModal('monto')
   }
 
   const handleGameWin = (game, value) => {
-    if (game === 'cuenta') update('cuentaOrigen', value)
+    if (game === 'destino') update('cuentaDestino', value)
     if (game === 'banco') update('bancoDestino', value)
     if (game === 'monto') update('monto', String(value))
     if (game === 'jefe') { onComplete(true); return }
@@ -34,7 +34,7 @@ export default function TransferForm({ onBack, onComplete }) {
     setModal(null)
   }
 
-  const allFilled = form.cuentaOrigen && form.bancoDestino && form.cuentaDestino && form.monto && form.correo && form.descripcion
+  const allFilled = form.bancoDestino && form.cuentaDestino && form.monto
 
   return (
     <div className="transfer-page">
@@ -47,19 +47,13 @@ export default function TransferForm({ onBack, onComplete }) {
           <div className="transfer-title">Nueva transferencia</div>
 
           <div className="form-group">
-            <label>
-              Cuenta origen
-              <span className="game-badge">🎮 minijuego</span>
-            </label>
-            <div className={`game-field ${form.cuentaOrigen ? 'completed' : ''}`} onClick={() => openModal('cuenta')}>
-              <input
-                type="text"
-                placeholder="Haz clic para generar cuenta"
-                value={form.cuentaOrigen}
-                readOnly
-              />
-              <span className="click-hint">{form.cuentaOrigen ? '✓' : '🎮'}</span>
-            </div>
+            <label>Cuenta origen</label>
+            <input
+              type="text"
+              value={CUENTA_ORIGEN}
+              disabled
+              style={{ background: '#f3f4f6', color: '#6b7280', cursor: 'not-allowed' }}
+            />
           </div>
 
           <div className="form-group">
@@ -79,13 +73,19 @@ export default function TransferForm({ onBack, onComplete }) {
           </div>
 
           <div className="form-group">
-            <label>Cuenta destino</label>
-            <input
-              type="text"
-              placeholder="0000-0000-0000-0000"
-              value={form.cuentaDestino}
-              onChange={e => update('cuentaDestino', e.target.value)}
-            />
+            <label>
+              Cuenta destino
+              <span className="game-badge">🎮 minijuego</span>
+            </label>
+            <div className={`game-field ${form.cuentaDestino ? 'completed' : ''}`} onClick={() => openModal('destino')}>
+              <input
+                type="text"
+                placeholder="Haz clic para generar cuenta"
+                value={form.cuentaDestino}
+                readOnly
+              />
+              <span className="click-hint">{form.cuentaDestino ? '✓' : '🎮'}</span>
+            </div>
           </div>
 
           <div className="form-group">
@@ -102,26 +102,6 @@ export default function TransferForm({ onBack, onComplete }) {
               />
               <span className="click-hint">{form.monto ? '✓' : '🎮'}</span>
             </div>
-          </div>
-
-          <div className="form-group">
-            <label>Correo de notificación</label>
-            <input
-              type="email"
-              placeholder="correo@ejemplo.com"
-              value={form.correo}
-              onChange={e => update('correo', e.target.value)}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Descripción</label>
-            <input
-              type="text"
-              placeholder="Motivo de la transferencia"
-              value={form.descripcion}
-              onChange={e => update('descripcion', e.target.value)}
-            />
           </div>
 
           <button

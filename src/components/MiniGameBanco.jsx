@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { sfxClick, sfxWin, startMusicBanco, stopMusic } from '../utils/sound'
 
 const BANKS = [
   'BBVA', 'SANTANDER', 'BANAMEX', 'HSBC', 'SCOTIABANK',
@@ -7,21 +8,19 @@ const BANKS = [
 
 const W = 700, H = 450
 
-export default function MiniGameBanco({ onWin, onLose }) {
+export default function MiniGameBanco({ onWin }) {
   const canvasRef = useRef(null)
   const onWinRef = useRef(onWin)
   onWinRef.current = onWin
 
   useEffect(() => {
+    startMusicBanco()
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     canvas.width = W; canvas.height = H
 
-    const target = BANKS[Math.floor(Math.random() * BANKS.length)]
-
     const balloons = BANKS.map(name => ({
       name,
-      target: name === target,
       x: 50 + Math.random() * (W - 100),
       y: 60 + Math.random() * (H - 120),
       vx: (Math.random() - 0.5) * 3,
@@ -31,6 +30,7 @@ export default function MiniGameBanco({ onWin, onLose }) {
 
     let state = 'playing', endCounter = 0, frame = 0, speed = 1
     let particles = [], cursor = { x: 0, y: 0 }
+    let selectedName = ''
 
     function spawnParticles(x, y, color, count = 12) {
       for (let i = 0; i < count; i++) {
@@ -48,10 +48,11 @@ export default function MiniGameBanco({ onWin, onLose }) {
       for (const b of balloons) {
         const dx = mx - b.x, dy = my - b.y
         if (dx * dx + dy * dy < b.r * b.r) {
-          if (b.target) {
-            spawnParticles(b.x, b.y, '#4f4')
-            state = 'won'; endCounter = 0
-          }
+          sfxClick()
+          selectedName = b.name
+          spawnParticles(b.x, b.y, '#4f4')
+          state = 'won'; endCounter = 0
+          setTimeout(() => sfxWin(), 200)
           break
         }
       }
@@ -107,34 +108,41 @@ export default function MiniGameBanco({ onWin, onLose }) {
 
       for (const b of balloons) {
         const isHover = b === hovered
-        const isTarget = b.target
+        const isSelected = b.name === selectedName && state === 'won'
 
-        if (isHover) {
+        if (isSelected) {
+          ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 8, 0, Math.PI * 2)
+          ctx.fillStyle = 'rgba(80,186,64,0.15)'
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(80,186,64,0.3)'
+          ctx.lineWidth = 1
+          ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 4, 0, Math.PI * 2)
+          ctx.stroke()
+        } else if (isHover) {
           ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 6, 0, Math.PI * 2)
-          ctx.fillStyle = isTarget ? 'rgba(80,186,64,0.2)' : 'rgba(200,200,200,0.1)'
+          ctx.fillStyle = 'rgba(200,200,200,0.1)'
           ctx.fill()
         }
 
         ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2)
         ctx.fillStyle = '#1a1a2e'
         ctx.fill()
-        ctx.strokeStyle = isTarget ? '#50BA40' : (isHover ? '#fff' : '#3a3a5c')
-        ctx.lineWidth = isHover ? 3 : 2
+        ctx.strokeStyle = isSelected ? '#50BA40' : (isHover ? '#fff' : '#3a3a5c')
+        ctx.lineWidth = isSelected ? 3 : (isHover ? 3 : 2)
         ctx.stroke()
 
-        if (isTarget) {
-          ctx.strokeStyle = 'rgba(80,186,64,0.15)'
-          ctx.lineWidth = 1
-          ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 4, 0, Math.PI * 2)
-          ctx.stroke()
-        }
-
-        ctx.fillStyle = isHover ? '#fff' : '#ccc'
+        ctx.fillStyle = isSelected ? '#50BA40' : (isHover ? '#fff' : '#ccc')
         ctx.font = 'bold 10px monospace'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         const name = b.name.length > 8 ? b.name.slice(0, 7) + '.' : b.name
-        ctx.fillText(name, b.x, b.y - 3)
+        ctx.fillText(name, b.x, b.y - (isSelected ? 6 : 3))
+
+        if (isSelected) {
+          ctx.fillStyle = '#50BA40'
+          ctx.font = 'bold 14px sans-serif'
+          ctx.fillText('✓', b.x, b.y + 14)
+        }
       }
 
       for (const p of particles) {
@@ -145,10 +153,10 @@ export default function MiniGameBanco({ onWin, onLose }) {
       }
       ctx.globalAlpha = 1
 
-      ctx.fillStyle = '#50BA40'
+      ctx.fillStyle = '#fff'
       ctx.font = 'bold 16px sans-serif'
       ctx.textAlign = 'center'
-      ctx.fillText('Selecciona: ' + target, W / 2, 24)
+      ctx.fillText('Selecciona tu banco destino', W / 2, 24)
       ctx.fillStyle = '#9ca3af'
       ctx.font = '12px sans-serif'
       ctx.fillText('Haz clic sobre el banco que quieras', W / 2, 44)
@@ -157,7 +165,7 @@ export default function MiniGameBanco({ onWin, onLose }) {
         ctx.fillStyle = '#50BA40'
         ctx.font = '28px sans-serif'
         ctx.textAlign = 'center'
-        ctx.fillText('✓ ' + target, W / 2, H / 2 - 10)
+        ctx.fillText('✓ ' + selectedName, W / 2, H / 2 - 10)
         ctx.fillStyle = '#fff'
         ctx.font = '14px sans-serif'
         ctx.fillText('Seleccionado correctamente', W / 2, H / 2 + 20)
@@ -169,13 +177,14 @@ export default function MiniGameBanco({ onWin, onLose }) {
       update(); draw()
       if (state === 'playing') { animId = requestAnimationFrame(loop); return }
       endCounter++
-      if (endCounter > 40) { running = false; onWinRef.current?.(target); return }
+      if (endCounter > 40) { running = false; onWinRef.current?.(selectedName); return }
       animId = requestAnimationFrame(loop)
     }
 
     let animId, running = true
     animId = requestAnimationFrame(loop)
     return () => {
+      stopMusic()
       running = false
       cancelAnimationFrame(animId)
       canvas.removeEventListener('click', handleClick)

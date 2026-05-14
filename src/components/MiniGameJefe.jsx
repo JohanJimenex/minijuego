@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { sfxShoot, sfxHit, sfxExplosion, sfxWin, sfxLose, startMusicJefe, stopMusic } from '../utils/sound'
 
 const W = 700, H = 450
 
@@ -10,6 +11,7 @@ export default function MiniGameJefe({ onWin, onLose }) {
   onLoseRef.current = onLose
 
   useEffect(() => {
+    startMusicJefe()
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     canvas.width = W; canvas.height = H
@@ -46,6 +48,7 @@ export default function MiniGameJefe({ onWin, onLose }) {
       if ((e.key === ' ' || e.key === 'Space') && state === 'playing') {
         e.preventDefault()
         bullets.push({ x: p.x + p.w / 2 - 3, y: p.y - 10, w: 6, h: 12 })
+        sfxShoot()
       }
     }
     const ku = e => keys[e.key] = false
@@ -87,7 +90,8 @@ export default function MiniGameJefe({ onWin, onLose }) {
           bossShake = 8
           spawnParticles(100 + Math.random() * (W - 200), 80, '#ff0', 10, 3)
           spawnHitSpark(100 + Math.random() * (W - 200), 80)
-          if (bossHP <= 0) { state = 'won'; endCounter = 0; spawnParticles(W / 2, 90, '#fa0', 50, 8) }
+          sfxHit()
+          if (bossHP <= 0) { state = 'won'; endCounter = 0; spawnParticles(W / 2, 90, '#fa0', 50, 8); sfxWin() }
           continue
         }
       }
@@ -104,7 +108,8 @@ export default function MiniGameJefe({ onWin, onLose }) {
           shakeX = 10; shakeY = 10
           redOverlay = 8
           spawnParticles(p.x + p.w / 2, p.y + p.h / 2, '#0ff', 8, 2)
-          if (playerHP <= 0) { state = 'lost'; endCounter = 0 }
+          sfxExplosion()
+          if (playerHP <= 0) { state = 'lost'; endCounter = 0; sfxLose() }
           continue
         }
       }
@@ -277,7 +282,7 @@ export default function MiniGameJefe({ onWin, onLose }) {
     }
 
     animId = requestAnimationFrame(loop)
-    return () => { running = false; cancelAnimationFrame(animId); window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku) }
+    return () => { stopMusic(); running = false; cancelAnimationFrame(animId); window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku) }
   }, [])
 
   return (
